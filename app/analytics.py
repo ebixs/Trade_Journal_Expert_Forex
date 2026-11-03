@@ -161,16 +161,18 @@ def apply_sequence_flags(trades: list, rules: dict, tz: ZoneInfo) -> None:
     for group in by_account.values():
         group.sort(key=lambda t: t["open_time"])
         per_day = defaultdict(int)
-        for i, trade in enumerate(group):
+        finished = sorted((t for t in group if t["closed"]), key=lambda t: t["close_time"])
+        next_done, last = 0, None
+        for trade in group:
             day = datetime.fromtimestamp(trade["open_time"], tz).date()
             per_day[day] += 1
             if limit and per_day[day] > limit:
                 trade["flags"].append("overtrade")
-            prior = [t for t in group[:i]
-                     if t["closed"] and t["close_time"] <= trade["open_time"]]
-            if not prior:
+            while next_done < len(finished) and finished[next_done]["close_time"] <= trade["open_time"]:
+                last = finished[next_done]
+                next_done += 1
+            if last is None:
                 continue
-            last = max(prior, key=lambda t: t["close_time"])
             if last["net"] >= 0:
                 continue
             if cooldown and trade["open_time"] - last["close_time"] < cooldown:

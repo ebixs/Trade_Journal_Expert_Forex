@@ -367,3 +367,21 @@ def test_fetch_builds_an_https_opener_with_and_without_proxy():
 
 def test_platform_is_reported_for_the_connect_page(client):
     assert client.get("/api/settings").json()["platform"]
+
+
+def test_simultaneous_requests_never_fail(client):
+    import threading
+    token = client.get("/api/settings").json()["token"]
+    failures = []
+
+    def hit(path, method="get", **kw):
+        for _ in range(40):
+            res = getattr(client, method)(path, **kw)
+            if res.status_code != 200:
+                failures.append((path, res.status_code))
+
+    jobs = [threading.Thread(target=hit, args=("/api/overview",)), threading.Thread(target=hit, args=("/api/status",)),
+            threading.Thread(target=hit, args=("/api/ea/sync", "post"), kwargs={"json": body(), "headers": {"X-Journal-Token": token}})]
+    [j.start() for j in jobs]
+    [j.join() for j in jobs]
+    assert failures == []

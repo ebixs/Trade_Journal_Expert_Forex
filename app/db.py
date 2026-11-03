@@ -2,6 +2,7 @@
 import json
 import secrets
 import sqlite3
+import threading
 from pathlib import Path
 
 SCHEMA = """
@@ -80,14 +81,54 @@ DEFAULT_SETTINGS = {
 }
 
 
-def connect(path) -> sqlite3.Connection:
+class Database:
+    """One SQLite connection per thread; sharing one across server threads corrupts cursors."""
+
+    def __init__(self, path):
+        self.path = str(path)
+        self.local = threading.local()
+
+    @property
+    def connection(self) -> sqlite3.Connection:
+        conn = getattr(self.local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.path, timeout=10)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys=ON")
+            self.local.conn = conn
+        return conn
+
+    def execute(self, *args):
+        return self.connection.execute(*args)
+
+    def executemany(self, *args):
+        return self.connection.executemany(*args)
+
+    def executescript(self, script):
+        return self.connection.executescript(script)
+
+    def commit(self):
+        self.connection.commit()
+
+    def close(self):
+        conn = getattr(self.local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self.local.conn = None
+
+    def __enter__(self):
+        return self.connection.__enter__()
+
+    def __exit__(self, *exc):
+        return self.connection.__exit__(*exc)
+
+
+def connect(path) -> Database:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.executescript(SCHEMA)
-    return conn
+    database = Database(path)
+    database.execute("PRAGMA journal_mode=WAL")
+    database.executescript(SCHEMA)
+    return database
 
 
 def get_settings(conn) -> dict:

@@ -4,7 +4,7 @@
 //| This expert is read-only: it contains no order functions.        |
 //+------------------------------------------------------------------+
 #property copyright "Personal trade journal"
-#property version   "1.10"
+#property version   "1.11"
 #ifdef __MQL4__
 #property strict
 #endif
@@ -20,6 +20,7 @@ input bool   InpPopups   = true;                    // Show a popup for each new
 #define MAX_SEEN     200
 #define MFE_MAX_BARS 20160
 #define PREFIX       "TJ_"
+#define OFFLINE_AFTER 3   // failed syncs in a row before the chart says offline
 #define CALENDAR_EVERY 300
 #define CALENDAR_MAX 150
 
@@ -48,7 +49,7 @@ struct DealRow
 datetime g_calendarAt = 0; // last time the economic calendar reached the journal
 long   g_cursor = -1;       // newest broker time the journal holds; -1 means not known yet
 string g_seen[];            // alert ids already shown as a popup
-bool   g_warned = false;    // connection help is printed once
+int    g_failures = 0;      // failed syncs in a row
 
 //--- text helpers ---------------------------------------------------
 string JsonText(string value)
@@ -451,19 +452,17 @@ bool Post(const string body, string &reply)
       ArrayResize(data, size - 1); // drop the terminating zero
    string headers = "Content-Type: application/json\r\nX-Journal-Token: " + InpToken + "\r\n";
    ResetLastError();
-   int status = WebRequest("POST", InpUrl + "/api/ea/sync", headers, 4000, data, result, responseHeaders);
+   int status = WebRequest("POST", InpUrl + "/api/ea/sync", headers, 8000, data, result, responseHeaders);
    if(status != 200)
      {
-      if(!g_warned)
-        {
+      g_failures++;
+      if(g_failures == OFFLINE_AFTER)
          Print("Journal sync failed. HTTP ", status, ", error ", GetLastError(),
                ". Check that the journal is running, the token is right, and ", InpUrl,
                " is in Tools > Options > Expert Advisors > Allow WebRequest.");
-         g_warned = true;
-        }
       return false;
      }
-   g_warned = false;
+   g_failures = 0;
    reply = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);
    return true;
   }
@@ -559,10 +558,11 @@ void SyncOnce()
       ApplyReply(reply);
      }
    else
-     {
-      ShowLine(0, "Journal offline", clrTomato);
-      HideLinesFrom(1);
-     }
+      if(g_failures >= OFFLINE_AFTER)
+        {
+         ShowLine(0, "Journal offline", clrTomato);
+         HideLinesFrom(1);
+        }
    ChartRedraw(0);
   }
 
