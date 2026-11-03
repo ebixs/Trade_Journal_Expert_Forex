@@ -3,6 +3,10 @@
 The account number, name and broker are never sent. Headlines and notes are passed as data.
 """
 import json
+import os
+import shutil
+import subprocess
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -50,10 +54,51 @@ class AiError(Exception):
 
 def configured(conn) -> bool:
     ai = db.get_settings(conn)["ai"]
+    if ai["format"] == "claude_cli":
+        return True
     return bool(ai["api_key"] and ai["base_url"] and ai["model"])
 
 
+def find_claude():
+    home = os.path.expanduser("~")
+    places = [os.path.join(home, ".local", "bin"), os.path.join(home, ".claude", "local"),
+              "/opt/homebrew/bin", "/usr/local/bin"]
+    return shutil.which("claude") or shutil.which("claude", path=os.pathsep.join(places))
+
+
+def call_claude_code(ai: dict, system: str, user: str, runner=subprocess.run) -> str:
+    """Uses the Claude Code login on this computer, so a Pro plan works without an API key."""
+    claude = find_claude()
+    if not claude:
+        raise AiError("Claude Code روی این کامپیوتر پیدا نشد. اول آن را نصب کن و وارد حسابت شو.")
+    # No tools: headlines and notes are untrusted text and must only ever be read.
+    command = [claude, "-p", "--safe-mode", "--tools", "", "--no-session-persistence",
+               "--output-format", "json", "--system-prompt", system]
+    if ai.get("model"):
+        command += ["--model", ai["model"]]
+    env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
+    with tempfile.TemporaryDirectory() as empty:
+        try:
+            result = runner(command, input=user, capture_output=True, text=True, encoding="utf-8",
+                            timeout=300, cwd=empty, env=env)
+        except subprocess.TimeoutExpired:
+            raise AiError("پاسخ Claude Code بیشتر از ۵ دقیقه طول کشید. دوباره امتحان کن.")
+        except OSError:
+            raise AiError("Claude Code اجرا نشد. نصب آن را بررسی کن.")
+    try:
+        data = json.loads(result.stdout)
+    except ValueError:
+        detail = (result.stderr or result.stdout or "").strip()[:160]
+        raise AiError(f"Claude Code جواب قابل خواندن نداد. نسخه و ورود به حساب را بررسی کن. {detail}")
+    if result.returncode or data.get("is_error"):
+        detail = str(data.get("result", ""))[:160]
+        raise AiError(f"Claude Code خطا داد. ورود به حساب و سقف مصرف را بررسی کن. {detail}")
+    return str(data.get("result", "")).strip()
+
+
 def call_model(ai: dict, system: str, user: str, proxy: str = "", opener=None, max_tokens=MAX_TOKENS) -> str:
+    if ai["format"] == "claude_cli":
+        return call_claude_code(ai, system, user)
     base = ai["base_url"].rstrip("/")
     if ai["format"] == "anthropic":
         url = base + "/v1/messages" if not base.endswith("/v1") else base + "/messages"
@@ -120,22 +165,25 @@ def coach_payload(overview: dict, trades: list, notes: dict) -> dict:
             "profile": overview["profile"], "currency": overview.get("currency", ""), "recent_trades": recent}
 
 
-def run_coach(conn, overview: dict, trades: list, notes: dict, now=None, opener=None) -> dict:
-    now = int(time.time()) if now is None else now
-    settings = db.get_settings(conn)
-    closed = overview["summary"]["count"]
-    if closed < 10:
+def coach_prompt(conn, overview: dict, trades: list, notes: dict) -> str:
+    if overview["summary"]["count"] < 10:
         raise AiError("برای گزارش مربی دست‌کم ۱۰ معامله بسته لازم است.")
     previous = latest(conn, "coach")
     prior = f"\n<data name=\"previous_report\">{previous[0]['body']}</data>" if previous else ""
-    user = (f"{COACH_TASK}\n<data name=\"journal\">{json.dumps(coach_payload(overview, trades, notes), ensure_ascii=False)}</data>{prior}")
-    body = call_model(settings["ai"], RULES, user, settings.get("proxy", ""), opener)
-    return _save(conn, "coach", "", closed, settings["ai"]["model"], body, now)
+    payload = json.dumps(coach_payload(overview, trades, notes), ensure_ascii=False)
+    return f"{COACH_TASK}\n<data name=\"journal\">{payload}</data>{prior}"
 
 
-def run_brief(conn, brief: dict, now=None, opener=None) -> dict:
+def run_coach(conn, overview: dict, trades: list, notes: dict, now=None, opener=None) -> dict:
     now = int(time.time()) if now is None else now
     settings = db.get_settings(conn)
+    user = coach_prompt(conn, overview, trades, notes)
+    body = call_model(settings["ai"], RULES, user, settings.get("proxy", ""), opener)
+    label = settings["ai"]["model"] or "Claude"
+    return _save(conn, "coach", "", overview["summary"]["count"], label, body, now)
+
+
+def brief_prompt(brief: dict, now: int) -> str:
     data = {
         "market": brief["market"], "name": brief["name"],
         "released": [{k: e.get(k) for k in ("title", "currency", "actual", "forecast", "previous", "time_utc", "effect")} for e in brief["released"]],
@@ -144,6 +192,16 @@ def run_brief(conn, brief: dict, now=None, opener=None) -> dict:
     }
     if not data["released"] and not data["upcoming"] and not data["headlines"]:
         raise AiError("هنوز خبر یا رویدادی برای این بازار دریافت نشده است.")
-    user = f"اکنون (UTC): {now}\n{BRIEF_TASK}\n<data>{json.dumps(data, ensure_ascii=False)}</data>"
-    body = call_model(settings["ai"], RULES, user, settings.get("proxy", ""), opener)
-    return _save(conn, "brief", brief["market"], None, settings["ai"]["model"], body, now)
+    return f"اکنون (UTC): {now}\n{BRIEF_TASK}\n<data>{json.dumps(data, ensure_ascii=False)}</data>"
+
+
+def run_brief(conn, brief: dict, now=None, opener=None) -> dict:
+    now = int(time.time()) if now is None else now
+    settings = db.get_settings(conn)
+    body = call_model(settings["ai"], RULES, brief_prompt(brief, now), settings.get("proxy", ""), opener)
+    return _save(conn, "brief", brief["market"], None, settings["ai"]["model"] or "Claude", body, now)
+
+
+def save_pasted(conn, kind: str, scope: str, closed, body: str, now=None) -> dict:
+    now = int(time.time()) if now is None else now
+    return _save(conn, kind, scope, closed, "چت Claude", body.strip(), now)

@@ -4,6 +4,7 @@ const state = { market: "", view: "overview", account: "", symbol: "", range: 30
 const THEMES = [["firoozeh", "فیروزه"], ["shab", "شب"], ["zar", "زر"], ["kavir", "کویر"], ["abr", "ابر"], ["exs", "EXS"], ["matrix", "Matrix"], ["ai", "AI"]];
 const SIDE = { buy: "خرید", sell: "فروش" };
 const AI_PRESETS = [
+  { name: "اشتراک Claude از راه Claude Code", format: "claude_cli", url: "" },
   { name: "AvalAI", format: "openai", url: "https://api.avalai.ir/v1" },
   { name: "Gilas", format: "openai", url: "https://api.gilas.io/v1" },
   { name: "OpenRouter", format: "openai", url: "https://openrouter.ai/api/v1" },
@@ -470,6 +471,7 @@ async function viewNews() {
       <section class="block"><h2>جمع‌بندی هوش مصنوعی</h2>
         ${d.ai ? `<div class="report">${reportHtml(d.ai.body)}</div><p class="caution">${stamp(d.ai.created_at)}، مدل ${esc(d.ai.model)}</p>` : `<p class="muted">${d.ai_ready ? "هنوز جمع‌بندی‌ای ساخته نشده." : "برای جمع‌بندی فارسی، سرویس هوش مصنوعی را تنظیم کن."}</p>`}
         <p style="margin-top:10px">${d.ai_ready ? `<button class="btn" id="brief">ساخت جمع‌بندی ${esc(d.name)}</button>` : `<button class="btn quiet" onclick="go('sources')">تنظیم هوش مصنوعی</button>`}</p>
+        ${pastePanel("brief", state.market, `/api/prompt/brief/${state.market}`)}
       </section>
       <section class="block"><h2>رویدادهای پیش رو</h2>${d.upcoming.map((e) => eventRow(e, false)).join("") || `<p class="muted">رویداد مهمی ثبت نشده.</p>`}</section>
     </div>
@@ -484,6 +486,28 @@ async function viewNews() {
     toast(r.started ? "دریافت شروع شد" : "در حالت نمونه خبری دریافت نمی‌شود");
   });
   $("#brief")?.addEventListener("click", (e) => runAi(e.target, `/api/news/${state.market}/brief`));
+  bindPaste();
+}
+
+function pastePanel(kind, scope, promptPath) {
+  return `<details class="head" style="margin-top:14px"><summary>بدون اتصال: با چت Claude بساز</summary>
+    <ol class="manual"><li>متن آماده را کپی کن.</li><li>آن را در چت Claude پیست کن.</li><li>جواب را این‌جا پیست و ذخیره کن.</li></ol>
+    <p><button class="btn quiet" type="button" data-prompt="${promptPath}">کپی متن آماده</button></p>
+    <textarea class="paste" rows="7" aria-label="جواب Claude" data-kind="${kind}" data-scope="${scope}" style="margin:10px 0"></textarea>
+    <button class="btn" type="button" data-save-report>ذخیره گزارش</button></details>`;
+}
+function bindPaste() {
+  document.querySelectorAll("[data-prompt]").forEach((b) => b.addEventListener("click", async () => {
+    const res = await fetch(b.dataset.prompt);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { toast(d.detail || "متن آماده ساخته نشد"); return; }
+    try { await navigator.clipboard.writeText(d.prompt); toast("متن کپی شد"); } catch { toast("مرورگر اجازه کپی نداد"); }
+  }));
+  document.querySelectorAll("[data-save-report]").forEach((b) => b.addEventListener("click", async () => {
+    const box = b.parentElement.querySelector(".paste");
+    const res = await fetch("/api/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: box.dataset.kind, scope: box.dataset.scope, body: box.value }) });
+    if (res.ok) { toast("گزارش ذخیره شد"); render(); } else toast("جواب کامل را پیست کن");
+  }));
 }
 
 const jsonPost = () => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -504,19 +528,21 @@ async function viewCoach() {
   const [last, ...old] = d.reports;
   $("#view").innerHTML = `<h1 class="page-title">مربی</h1><p class="page-sub">مربی آمار، نکته‌های رفتاری، ۴۰ معامله آخر و یادداشت‌هایت را می‌خواند و گزارش قبلی را هم می‌بیند، پس پیشرفتت را دنبال می‌کند. شماره حساب و نام بروکر ارسال نمی‌شود.</p>
     <p style="margin-bottom:18px">${d.ready ? `<button class="btn" id="coach">ساخت گزارش تازه</button>` : `<button class="btn" onclick="go('sources')">تنظیم هوش مصنوعی</button>`}</p>
+    ${pastePanel("coach", "", "/api/prompt/coach")}
     ${last ? `<div class="report">${reportHtml(last.body)}</div><p class="caution">${stamp(last.created_at)}، بر اساس ${last.closed_trades} معامله بسته. مربی جایگزین مشاور مالی نیست.</p>` : `<div class="empty"><h2>هنوز گزارشی نیست</h2><p>${d.ready ? "با دست‌کم ۱۰ معامله بسته، اولین گزارش را بساز." : "اول سرویس هوش مصنوعی را وصل کن. پیشنهادهای آماری در نمای کلی بدون آن هم کار می‌کنند."}</p></div>`}
     ${old.length ? `<h2 style="margin:26px 0 8px">گزارش‌های قبلی</h2>${old.map((r) => `<details class="head"><summary>${stamp(r.created_at)}، ${r.closed_trades} معامله</summary><div class="report">${reportHtml(r.body)}</div></details>`).join("")}` : ""}`;
   $("#coach")?.addEventListener("click", (e) => runAi(e.target, "/api/coach"));
+  bindPaste();
 }
 
 function viewSources() {
   const s = state.settings, a = s.ai;
   $("#filters").innerHTML = "";
   $("#view").innerHTML = `<h1 class="page-title">هوش مصنوعی و منبع‌ها</h1>
-  <p class="page-sub">هر سرویس سازگار با OpenAI یا Anthropic کار می‌کند، از جمله سرویس‌های واسطی که از ایران در دسترس‌اند. سرویس واسط متن گزارش‌ها را می‌بیند، پس به آن اعتماد داشته باش.</p>
+  <p class="page-sub">با اشتراک Claude از راه Claude Code یا با کلید API کار می‌کند. برای اشتراک، فقط گزینه اول را انتخاب و ذخیره کن و کلید و آدرس لازم نیست. اگر از سرویس واسط استفاده می‌کنی، آن سرویس متن گزارش‌ها را می‌بیند.</p>
   <form class="form" id="ai">
     <label style="grid-column:1/-1">سرویس آماده<select id="preset"><option value="">انتخاب کن تا آدرس پر شود</option>${AI_PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join("")}</select></label>
-    <label>نوع سرویس<select name="format"><option value="openai">سازگار با OpenAI</option><option value="anthropic">Anthropic</option></select></label>
+    <label>نوع سرویس<select name="format"><option value="openai">سازگار با OpenAI</option><option value="anthropic">Anthropic</option><option value="claude_cli">اشتراک Claude از راه Claude Code</option></select></label>
     <label>آدرس سرویس<input class="ltr" type="text" name="base_url" value="${esc(a.base_url)}" placeholder="https://api.openai.com/v1"></label>
     <label>نام مدل<input class="ltr" type="text" name="model" value="${esc(a.model)}"></label>
     <label>کلید API<input class="ltr" type="password" name="api_key" autocomplete="off" placeholder="${a.has_key ? "ذخیره شده است" : ""}" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:5px 10px;width:100%"><small>فقط روی همین کامپیوتر ذخیره می‌شود.</small></label>

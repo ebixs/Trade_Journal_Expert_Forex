@@ -12,7 +12,7 @@
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-local%20server-009688?logo=fastapi&logoColor=white">
   <img alt="SQLite" src="https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white">
   <img alt="MQL" src="https://img.shields.io/badge/MQL5%20%2F%20MQL4-read--only%20expert-E6B553">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-59%20passing-46D68A">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-65%20passing-46D68A">
   <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%7C%20Windows-supported-555">
 </p>
 
@@ -37,7 +37,7 @@ This project records every trade automatically, keeps the data on your own compu
 | **A story for every trade** | Entry, risk, exit, R multiple, best and worst price, and a timeline written in Persian. |
 | **Behaviour analytics** | Detects revenge entries, size increases after losses, missing stops, widened stops, early exits, overtrading and entries around high-impact news, and shows what each one cost. |
 | **Fundamentals by market** | Choose Dow, Nasdaq, gold, EUR/USD, GBP/USD or oil. See upcoming events, released figures against forecast, the usual reaction and relevant headlines. |
-| **AI coach** | Reads your statistics, recent trades, notes and its own previous report, then tracks whether you are improving. |
+| **AI coach** | Reads your statistics, recent trades, notes and its own previous report. Works through Claude Code, an API key, or a copy-and-paste flow with no connection. |
 | **Discipline on the chart** | Daily loss limit, trade limit, loss streak, cooldown, missing stop and pre-news warnings appear in MetaTrader. |
 | **Personal look** | Eight themes, including EXS, Matrix and AI, plus custom accent, density and text size. |
 | **Runs itself** | Desktop shortcut, start after login, updates from GitHub and daily backups. |
@@ -145,10 +145,14 @@ pytest
 | Area | Status |
 |---|---|
 | macOS with MT5 on a demo account | Working: compiled, connected, live news and calendar |
-| Server, analytics, backups, launcher logic | Covered by 59 automated tests |
+| Server, analytics, backups, launcher logic | Covered by 65 automated tests |
 | Windows launcher and MT4 build | Written, not yet run on real systems |
-| Real AI service | Tested against a local stand-in so far |
+| Real AI service | Claude Code path tested with a stand-in program; API path with a local stand-in |
 | Netting accounts | Basic support; position reversals may not split exactly |
+
+## Copyright
+
+Copyright © 2026 ebixs (EXS). All rights reserved. The code and artwork are public for viewing only. See [LICENSE](LICENSE).
 
 ## Disclaimer
 

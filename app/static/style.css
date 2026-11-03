@@ -127,6 +127,7 @@ code{direction:ltr;unicode-bidi:isolate;background:var(--surface);border-radius:
 .tl li{padding:6px 0;border-bottom:1px solid var(--grid);font-size:.93rem}
 .tl small{display:block;color:var(--muted)}
 .toast{position:fixed;bottom:22px;inset-inline-start:22px;background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:var(--r);z-index:20}
+.manual{margin:8px 0;padding-inline-start:20px;color:var(--muted)}
 .report{max-width:76ch}
 .report h3{margin:16px 0 4px;color:var(--accent)}
 .report ul{margin:0;padding-inline-start:20px}

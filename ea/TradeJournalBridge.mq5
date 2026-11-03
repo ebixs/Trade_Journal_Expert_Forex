@@ -3,7 +3,7 @@
 //| its alerts on the chart. The same file builds for MT4 and MT5.   |
 //| This expert is read-only: it contains no order functions.        |
 //+------------------------------------------------------------------+
-#property copyright "Personal trade journal"
+#property copyright "Copyright 2026 ebixs (EXS). All rights reserved."
 #property version   "1.11"
 #ifdef __MQL4__
 #property strict

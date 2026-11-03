@@ -500,3 +500,58 @@ def test_background_start_does_not_open_a_browser(steps, monkeypatch):
 
 def test_ai_test_needs_a_configured_service(client):
     assert client.post("/api/ai/test", json={}).status_code == 409
+
+
+# --- Claude subscription -----------------------------------------------------
+class Done:
+    def __init__(self, out, code=0, err=""):
+        self.stdout, self.returncode, self.stderr = out, code, err
+
+
+def test_claude_code_runs_without_tools_or_api_key(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(ai, "find_claude", lambda: "/bin/claude")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "must-not-pass")
+
+    def runner(command, **kw):
+        seen.update(command=command, **kw)
+        return Done('{"is_error":false,"result":" salam "}')
+
+    assert ai.call_claude_code({"model": "sonnet"}, "sys", "payload", runner) == "salam"
+    command = seen["command"]
+    assert command[command.index("--tools") + 1] == "" and "--bare" not in command
+    assert "--safe-mode" in command and command[command.index("--model") + 1] == "sonnet"
+    assert seen["input"] == "payload" and "ANTHROPIC_API_KEY" not in seen["env"]
+
+
+def test_claude_code_failures_are_clear(monkeypatch):
+    monkeypatch.setattr(ai, "find_claude", lambda: None)
+    with pytest.raises(ai.AiError, match="پیدا نشد"):
+        ai.call_claude_code({}, "s", "u")
+    monkeypatch.setattr(ai, "find_claude", lambda: "/bin/claude")
+    with pytest.raises(ai.AiError, match="Not logged in"):
+        ai.call_claude_code({}, "s", "u", lambda *a, **k: Done('{"is_error":true,"result":"Not logged in"}'))
+    with pytest.raises(ai.AiError):
+        ai.call_claude_code({}, "s", "u", lambda *a, **k: Done("not json", 1))
+
+
+def test_subscription_mode_counts_as_configured(conn):
+    db.put_setting(conn, "ai", {"format": "claude_cli", "base_url": "", "model": "", "api_key": "", "auto_every": 0})
+    assert ai.configured(conn) is True
+
+
+def test_manual_prompt_and_pasted_report(client):
+    assert client.get("/api/prompt/coach").status_code == 409
+    report = {"kind": "coach", "body": "## گزارش\nاین گزارش از چت Claude پیست شده است."}
+    assert client.post("/api/reports", json=report).status_code == 200
+    assert client.get("/api/coach").json()["reports"][0]["model"] == "چت Claude"
+    assert client.post("/api/reports", json={"kind": "brief", "scope": "NOPE", "body": "x" * 30}).status_code == 422
+
+
+def test_brief_prompt_has_market_data(client):
+    assert client.get("/api/prompt/brief/XAUUSD").status_code == 409
+
+
+def test_rights_are_reserved():
+    from pathlib import Path
+    assert "All rights reserved" in (Path(__file__).parent.parent / "LICENSE").read_text()

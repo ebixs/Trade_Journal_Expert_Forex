@@ -47,11 +47,17 @@ class RulesIn(BaseModel):
 
 
 class AiIn(BaseModel):
-    format: str = Field("openai", pattern="^(openai|anthropic)$")
+    format: str = Field("openai", pattern="^(openai|anthropic|claude_cli)$")
     base_url: str = Field("", max_length=300, pattern="^(https?://.*)?$")
     model: str = Field("", max_length=120)
     api_key: Optional[str] = Field(None, max_length=400)  # None keeps the saved key
     auto_every: int = Field(0, ge=0, le=1000)
+
+
+class PastedReport(BaseModel):
+    kind: str = Field(pattern="^(coach|brief)$")
+    scope: str = Field("", max_length=20)
+    body: str = Field(min_length=20, max_length=30000)
 
 
 class SettingsIn(BaseModel):
@@ -317,6 +323,30 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
             return ai.run_coach(conn, *coach_inputs())
         except ai.AiError as error:
             raise HTTPException(502, str(error))
+
+    @app.get("/api/prompt/coach")
+    def prompt_coach():
+        try:
+            return {"prompt": f"{ai.RULES}\n\n{ai.coach_prompt(conn, *coach_inputs())}"}
+        except ai.AiError as error:
+            raise HTTPException(409, str(error))
+
+    @app.get("/api/prompt/brief/{market}")
+    def prompt_brief(market: str):
+        if market not in markets.MARKETS:
+            raise HTTPException(404, "unknown market")
+        try:
+            return {"prompt": f"{ai.RULES}\n\n{ai.brief_prompt(markets.rule_brief(conn, market), int(time.time()))}"}
+        except ai.AiError as error:
+            raise HTTPException(409, str(error))
+
+    @app.post("/api/reports", dependencies=[Depends(require_json)])
+    def save_report(report: PastedReport):
+        if report.kind == "brief" and report.scope not in markets.MARKETS:
+            raise HTTPException(422, "unknown market")
+        closed = coach_inputs()[0]["summary"]["count"] if report.kind == "coach" else None
+        scope = report.scope if report.kind == "brief" else ""
+        return ai.save_pasted(conn, report.kind, scope, closed, report.body)
 
     @app.post("/api/ai/test", dependencies=[Depends(require_json)])
     def ai_test():
