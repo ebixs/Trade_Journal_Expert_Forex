@@ -476,7 +476,7 @@ void ShowLine(const int index, const string text, const color ink)
       ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
       ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_LOWER);
       ObjectSetInteger(0, name, OBJPROP_XDISTANCE, 12);
-      ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 24 + index * 20);
+      ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 40 + index * 20);
       ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 10);
       ObjectSetString(0, name, OBJPROP_FONT, "Segoe UI");
       ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
