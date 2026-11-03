@@ -42,4 +42,4 @@ Traders repeat costly habits because memory favours good outcomes. Manual journa
 
 ## Honest scope
 
-The project was built with AI-assisted development. It runs on macOS with MT5 on a demo account. The MT4 build and the Windows launcher have not been run on real systems yet, and the AI coach has not yet been tested with a live provider.
+The project was built with AI-assisted development. It runs on macOS with MT5 on a demo account. The MT4 build and the Windows launcher have not been run on real systems yet, and the API-key path has only been tested with a local stand-in. AI market briefs run through Claude Code on a Pro plan, while the coach report still needs ten closed trades.

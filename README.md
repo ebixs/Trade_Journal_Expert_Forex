@@ -147,7 +147,7 @@ pytest
 | macOS with MT5 on a demo account | Working: compiled, connected, live news and calendar |
 | Server, analytics, backups, launcher logic | Covered by 66 automated tests |
 | Windows launcher and MT4 build | Written, not yet run on real systems |
-| Real AI service | Claude Code path tested with a stand-in program; API path with a local stand-in |
+| AI briefs | Working through Claude Code on a Pro plan; API-key path tested with a local stand-in |
 | Netting accounts | Basic support; position reversals may not split exactly |
 
 ## Copyright
