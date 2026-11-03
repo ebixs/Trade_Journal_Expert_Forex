@@ -12,6 +12,8 @@ import venv
 import webbrowser
 from pathlib import Path
 
+from app.gitinfo import git_command, head_commit
+
 ROOT = Path(__file__).resolve().parent
 PORT = 8765
 URL = f"http://127.0.0.1:{PORT}"
@@ -27,7 +29,7 @@ def log(text: str) -> None:
 
 
 def git(*args, timeout=25) -> str:
-    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True,
+    result = subprocess.run([*git_command(), *args], cwd=ROOT, capture_output=True, text=True,
                             timeout=timeout, creationflags=NO_WINDOW)
     if result.returncode:
         raise RuntimeError(result.stderr.strip()[:300])
@@ -35,10 +37,7 @@ def git(*args, timeout=25) -> str:
 
 
 def current_commit() -> str:
-    try:
-        return git("rev-parse", "HEAD")
-    except Exception:
-        return ""
+    return head_commit(ROOT)
 
 
 def update() -> None:
@@ -129,7 +128,7 @@ def main() -> int:
     ensure_environment()
     state = server_state()
     commit = current_commit()
-    if state and state.get("commit") and commit and state["commit"] != commit:
+    if state and state.get("commit") is not None and commit and state["commit"] != commit:
         log(f"restarting server for {commit[:7]}")
         try:
             stop_server()

@@ -2,7 +2,6 @@
 import csv
 import io
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -17,19 +16,11 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import ai, analytics, db, feeds, markets
+from . import ai, analytics, db, feeds, gitinfo, markets
 from .ingest import SyncIn, apply_sync
 
 STATIC = Path(__file__).parent / "static"
 EA_ONLINE_SECONDS = 30
-
-
-def running_commit() -> str:
-    try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=STATIC.parent.parent, capture_output=True,
-                              text=True, timeout=5, creationflags=0x08000000 if os.name == "nt" else 0).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return ""
 
 
 class NoteIn(BaseModel):
@@ -92,7 +83,7 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
 
     app = FastAPI(title="Trade Journal", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.worker = None
-    commit = running_commit()
+    commit = gitinfo.head_commit(STATIC.parent.parent)
     # Blocks DNS rebinding: a web page must not be able to read this local server.
     app.add_middleware(TrustedHostMiddleware,
                        allowed_hosts=["127.0.0.1", "localhost", "testserver"])

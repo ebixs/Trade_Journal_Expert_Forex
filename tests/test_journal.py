@@ -433,3 +433,32 @@ def test_failed_update_still_opens_the_journal(monkeypatch, tmp_path):
 def test_shutdown_needs_the_token(client):
     assert client.post("/api/shutdown", json={}).status_code == 401
     assert "commit" in client.get("/api/version").json()
+
+
+def test_server_with_unknown_commit_is_restarted_after_update(steps, monkeypatch):
+    monkeypatch.setattr(launcher, "server_state", lambda: {"commit": ""})
+    launcher.main()
+    assert "stop" in steps and "start" in steps
+
+
+def test_git_runs_natively_on_apple_silicon(monkeypatch):
+    from app import gitinfo
+    monkeypatch.setattr(gitinfo.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(gitinfo.subprocess, "run", lambda *a, **k: type("R", (), {"stdout": "1\n"})())
+    assert gitinfo.git_command() == ["/usr/bin/arch", "-arm64", "git"]
+    monkeypatch.setattr(gitinfo.subprocess, "run", lambda *a, **k: type("R", (), {"stdout": "\n"})())
+    assert gitinfo.git_command() == ["git"]
+
+
+def test_head_commit_reads_loose_packed_and_detached(tmp_path):
+    from app import gitinfo
+    git_dir = tmp_path / ".git"
+    (git_dir / "refs/heads").mkdir(parents=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/main\n")
+    (git_dir / "packed-refs").write_text("# pack\nabc123 refs/heads/main\n")
+    assert gitinfo.head_commit(tmp_path) == "abc123"
+    (git_dir / "refs/heads/main").write_text("def456\n")
+    assert gitinfo.head_commit(tmp_path) == "def456"
+    (git_dir / "HEAD").write_text("fff999\n")
+    assert gitinfo.head_commit(tmp_path) == "fff999"
+    assert gitinfo.head_commit(tmp_path / "missing") == ""
