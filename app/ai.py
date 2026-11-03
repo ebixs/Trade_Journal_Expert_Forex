@@ -53,17 +53,17 @@ def configured(conn) -> bool:
     return bool(ai["api_key"] and ai["base_url"] and ai["model"])
 
 
-def call_model(ai: dict, system: str, user: str, proxy: str = "", opener=None) -> str:
+def call_model(ai: dict, system: str, user: str, proxy: str = "", opener=None, max_tokens=MAX_TOKENS) -> str:
     base = ai["base_url"].rstrip("/")
     if ai["format"] == "anthropic":
         url = base + "/v1/messages" if not base.endswith("/v1") else base + "/messages"
         headers = {"x-api-key": ai["api_key"], "anthropic-version": "2023-06-01"}
-        body = {"model": ai["model"], "max_tokens": MAX_TOKENS, "system": system,
+        body = {"model": ai["model"], "max_tokens": max_tokens, "system": system,
                 "messages": [{"role": "user", "content": user}]}
     else:
         url = base + "/chat/completions"
         headers = {"Authorization": f"Bearer {ai['api_key']}"}
-        body = {"model": ai["model"], "max_tokens": MAX_TOKENS, "messages": [
+        body = {"model": ai["model"], "max_tokens": max_tokens, "messages": [
             {"role": "system", "content": system}, {"role": "user", "content": user}]}
     request = urllib.request.Request(url, json.dumps(body).encode(), method="POST",
                                      headers={"Content-Type": "application/json", **headers})
@@ -84,6 +84,12 @@ def call_model(ai: dict, system: str, user: str, proxy: str = "", opener=None) -
         return data["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError, TypeError, AttributeError):
         raise AiError("پاسخ سرویس ساختار مورد انتظار را نداشت.")
+
+
+def check_connection(conn, opener=None) -> str:
+    settings = db.get_settings(conn)
+    return call_model(settings["ai"], "Answer with one short word.", "Say OK.",
+                      settings.get("proxy", ""), opener, max_tokens=20)
 
 
 def _save(conn, kind, scope, closed, model, body, now):

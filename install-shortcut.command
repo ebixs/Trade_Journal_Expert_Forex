@@ -1,5 +1,5 @@
 #!/bin/bash
-# Creates the desktop shortcut on macOS. Run once; run again if the project folder moves.
+# Creates the desktop shortcut and login start on macOS. Run once; run again if the project folder moves.
 set -e
 cd "$(dirname "$0")"
 DIR="$(pwd)"
@@ -35,11 +35,29 @@ PLIST
   echo '#!/bin/bash'
   echo 'export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"'
   printf 'cd %q || exit 1\n' "$DIR"
-  echo 'exec .venv/bin/python launcher.py'
+  echo 'exec .venv/bin/python launcher.py "$@"'
 } > "$APP/Contents/MacOS/journal"
 chmod +x "$APP/Contents/MacOS/journal"
 xattr -cr "$APP" 2>/dev/null || true
 codesign --force --deep -s - "$APP" 2>/dev/null || true
 touch "$APP"
 killall Finder 2>/dev/null || true
-echo "Done. Trade Journal is on your Desktop."
+
+# Start silently after login, through the app so it keeps its folder permission.
+AGENT="$HOME/Library/LaunchAgents/local.exs.tradejournal.plist"
+mkdir -p "$HOME/Library/LaunchAgents"
+cat > "$AGENT" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>local.exs.tradejournal</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/bin/open</string><string>-g</string><string>-j</string>
+    <string>$APP</string><string>--args</string><string>--background</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+</dict></plist>
+PLIST
+launchctl unload "$AGENT" 2>/dev/null || true
+launchctl load "$AGENT" 2>/dev/null || true
+echo "Done. Trade Journal is on your Desktop and starts after login."

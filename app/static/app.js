@@ -3,6 +3,13 @@ const $ = (s) => document.querySelector(s);
 const state = { market: "", view: "overview", account: "", symbol: "", range: 30, flag: "", settings: null, status: null };
 const THEMES = [["firoozeh", "فیروزه"], ["shab", "شب"], ["zar", "زر"], ["kavir", "کویر"], ["abr", "ابر"], ["exs", "EXS"], ["matrix", "Matrix"], ["ai", "AI"]];
 const SIDE = { buy: "خرید", sell: "فروش" };
+const AI_PRESETS = [
+  { name: "AvalAI", format: "openai", url: "https://api.avalai.ir/v1" },
+  { name: "Gilas", format: "openai", url: "https://api.gilas.io/v1" },
+  { name: "OpenRouter", format: "openai", url: "https://openrouter.ai/api/v1" },
+  { name: "OpenAI", format: "openai", url: "https://api.openai.com/v1" },
+  { name: "Anthropic", format: "anthropic", url: "https://api.anthropic.com" },
+];
 const ZONES = ["Asia/Tehran", "UTC", "Europe/London", "America/New_York", "Asia/Dubai"];
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -294,7 +301,7 @@ function viewRules() {
   $("#filters").innerHTML = "";
   $("#view").innerHTML = `<h1 class="page-title">قوانین و هشدار</h1><p class="page-sub">اکسپرت هر چند ثانیه این قانون‌ها را بررسی می‌کند و هشدار را روی چارت نشان می‌دهد. جلوی معامله را نمی‌گیرد. عدد صفر هر قانون را خاموش می‌کند.</p>
   <form class="form" id="rules">
-    ${field("daily_loss_limit", "سقف ضرر روزانه", "به ارز حساب", r.daily_loss_limit, 'step="0.01"')}
+    ${field("daily_loss_limit", "سقف ضرر روزانه", "مبلغ به دلار یا ارز حساب، نه درصد. برای حساب ۱۰۰۰ دلاری، ۲ درصد می‌شود 20", r.daily_loss_limit, 'step="0.01"')}
     ${field("max_trades_per_day", "سقف معامله در روز", "معامله‌های بعدی علامت می‌خورند", r.max_trades_per_day)}
     ${field("max_consecutive_losses", "سقف باخت پیاپی", "در همان روز", r.max_consecutive_losses)}
     ${field("cooldown_minutes", "استراحت بعد از ضرر", "دقیقه", r.cooldown_minutes)}
@@ -508,12 +515,19 @@ function viewSources() {
   $("#view").innerHTML = `<h1 class="page-title">هوش مصنوعی و منبع‌ها</h1>
   <p class="page-sub">هر سرویس سازگار با OpenAI یا Anthropic کار می‌کند، از جمله سرویس‌های واسطی که از ایران در دسترس‌اند. سرویس واسط متن گزارش‌ها را می‌بیند، پس به آن اعتماد داشته باش.</p>
   <form class="form" id="ai">
+    <label style="grid-column:1/-1">سرویس آماده<select id="preset"><option value="">انتخاب کن تا آدرس پر شود</option>${AI_PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join("")}</select></label>
     <label>نوع سرویس<select name="format"><option value="openai">سازگار با OpenAI</option><option value="anthropic">Anthropic</option></select></label>
     <label>آدرس سرویس<input class="ltr" type="text" name="base_url" value="${esc(a.base_url)}" placeholder="https://api.openai.com/v1"></label>
     <label>نام مدل<input class="ltr" type="text" name="model" value="${esc(a.model)}"></label>
     <label>کلید API<input class="ltr" type="password" name="api_key" autocomplete="off" placeholder="${a.has_key ? "ذخیره شده است" : ""}" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:5px 10px;width:100%"><small>فقط روی همین کامپیوتر ذخیره می‌شود.</small></label>
     <label>گزارش خودکار مربی${""}<input type="number" name="auto_every" min="0" value="${a.auto_every}"><small>بعد از هر چند معامله بسته. صفر یعنی فقط با دکمه. هر گزارش هزینه مصرف دارد.</small></label>
-    <div style="grid-column:1/-1"><button class="btn">ذخیره تنظیمات هوش مصنوعی</button></div>
+    <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px"><button class="btn">ذخیره تنظیمات هوش مصنوعی</button><button class="btn quiet" type="button" id="ai-test">تست اتصال</button></div>
+  </form>
+  <h2 style="margin:28px 0 8px">بکاپ</h2>
+  <form class="form" id="backup">
+    <div style="grid-column:1/-1" id="backup-state" class="muted">در حال خواندن وضعیت بکاپ</div>
+    <label style="grid-column:1/-1">پوشه بکاپ<input class="ltr" type="text" name="backup_dir" value="${esc(s.backup_dir)}" placeholder="خالی یعنی پوشه پیش‌فرض"><small>هر روز خودکار یک نسخه ساخته می‌شود و ۳۰ نسخه آخر می‌ماند. کلید API در بکاپ نیست. پوشه‌ای مثل iCloud یا درایو بیرونی امن‌تر است.</small></label>
+    <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px"><button class="btn">ذخیره پوشه</button><button class="btn quiet" type="button" id="backup-now">الان بکاپ بگیر</button></div>
   </form>
   <h2 style="margin:28px 0 8px">بازارهای من</h2>
   <div class="chips" role="group" aria-label="بازارها" style="display:inline-flex;flex-wrap:wrap;margin-bottom:6px">${Object.entries(s.catalog).map(([k, n]) => `<button data-pick="${k}" aria-pressed="${s.markets.includes(k)}">${esc(n)}</button>`).join("")}</div>
@@ -524,6 +538,35 @@ function viewSources() {
     <div style="grid-column:1/-1"><button class="btn">ذخیره منبع‌ها</button></div>
   </form>`;
   $("#ai [name=format]").value = a.format;
+  $("#preset").addEventListener("change", (e) => {
+    const p = AI_PRESETS[e.target.value];
+    if (!p) return;
+    $("#ai [name=format]").value = p.format;
+    $("#ai [name=base_url]").value = p.url;
+  });
+  $("#ai-test").addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    const res = await fetch("/api/ai/test", jsonPost());
+    e.target.disabled = false;
+    const b = await res.json().catch(() => ({}));
+    toast(res.ok ? "اتصال برقرار است" : b.detail || "تست انجام نشد");
+  });
+  const showBackup = (b) => {
+    $("#backup-state").textContent = b.latest ? `${b.count} نسخه در ${b.folder}. آخرین: ${stamp(b.latest)}` : `هنوز بکاپی نیست. مقصد: ${b.folder}`;
+  };
+  api("/api/backup").then(showBackup);
+  $("#backup").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await put("/api/settings", { backup_dir: new FormData(e.target).get("backup_dir") });
+    s.backup_dir = new FormData(e.target).get("backup_dir").trim();
+    showBackup(await api("/api/backup"));
+    toast("پوشه بکاپ ذخیره شد");
+  });
+  $("#backup-now").addEventListener("click", async () => {
+    const res = await fetch("/api/backup", jsonPost());
+    const b = await res.json().catch(() => ({}));
+    if (res.ok) { showBackup(b); toast("بکاپ ساخته شد"); } else toast(b.detail || "بکاپ انجام نشد");
+  });
   $("#ai").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);

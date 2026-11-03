@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import ai, analytics, db, feeds, gitinfo, markets
+from . import ai, analytics, backup, db, feeds, gitinfo, markets
 from .ingest import SyncIn, apply_sync
 
 STATIC = Path(__file__).parent / "static"
@@ -62,6 +62,7 @@ class SettingsIn(BaseModel):
     markets: Optional[list[str]] = None
     feeds: Optional[list[str]] = Field(None, max_length=30)
     proxy: Optional[str] = Field(None, max_length=200, pattern="^(https?://.*)?$")
+    backup_dir: Optional[str] = Field(None, max_length=500)
 
 
 def create_app(db_path=None, demo=False, background=False) -> FastAPI:
@@ -73,7 +74,7 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
     async def lifespan(_app):
         worker = None
         if background and not demo:
-            worker = feeds.Worker(lambda: db.connect(path), auto_coach)
+            worker = feeds.Worker(lambda: db.connect(path), periodic)
             worker.start()
             _app.state.worker = worker
         yield
@@ -253,6 +254,8 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
             db.put_setting(conn, "feeds", body.feeds)
         if body.proxy is not None:
             db.put_setting(conn, "proxy", body.proxy)
+        if body.backup_dir is not None:
+            db.put_setting(conn, "backup_dir", body.backup_dir.strip())
         return {"saved": True}
 
     def coach_inputs():
@@ -262,7 +265,11 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
         overview_["currency"] = currency("")
         return overview_, trades_, notes
 
-    def auto_coach(_worker_conn):
+    def periodic(_worker_conn):
+        backup.run_if_due(conn, db.get_settings(conn))
+        auto_coach()
+
+    def auto_coach():
         every = db.get_settings(conn)["ai"]["auto_every"]
         if not every or not ai.configured(conn):
             return
@@ -310,6 +317,29 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
             return ai.run_coach(conn, *coach_inputs())
         except ai.AiError as error:
             raise HTTPException(502, str(error))
+
+    @app.post("/api/ai/test", dependencies=[Depends(require_json)])
+    def ai_test():
+        if not ai.configured(conn):
+            raise HTTPException(409, "آدرس، مدل و کلید را کامل وارد و ذخیره کن.")
+        try:
+            return {"reply": ai.check_connection(conn)}
+        except ai.AiError as error:
+            raise HTTPException(502, str(error))
+
+    @app.get("/api/backup")
+    def backup_status():
+        return backup.status(db.get_settings(conn))
+
+    @app.post("/api/backup", dependencies=[Depends(require_json)])
+    def backup_now():
+        if demo:
+            raise HTTPException(409, "در حالت نمونه بکاپ گرفته نمی‌شود.")
+        try:
+            backup.create(conn, db.get_settings(conn))
+        except OSError:
+            raise HTTPException(502, "پوشه بکاپ در دسترس نیست. مسیر را بررسی کن.")
+        return backup.status(db.get_settings(conn))
 
     @app.get("/api/export.csv")
     def export(account: str = "", symbol: str = "", start: Optional[int] = None,

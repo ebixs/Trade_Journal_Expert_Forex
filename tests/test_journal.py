@@ -466,3 +466,37 @@ def test_head_commit_reads_loose_packed_and_detached(tmp_path):
 
 def test_static_files_are_revalidated_after_updates(client):
     assert client.get("/static/app.js").headers["cache-control"] == "no-cache"
+
+
+# --- backup ----------------------------------------------------------------
+from app import backup  # noqa: E402
+
+
+def test_backup_keeps_trades_and_drops_the_api_key(conn, tmp_path):
+    import sqlite3
+    db.put_setting(conn, "ai", {**AI, "api_key": "very-secret"})
+    apply_sync(conn, SyncIn(account=ACC, deals=[deal(1, 1, "buy", "in", 1, 100, 1000)]))
+    path = backup.create(conn, {"backup_dir": str(tmp_path / "b")}, NOW)
+    copy = sqlite3.connect(path)
+    assert copy.execute("SELECT COUNT(*) FROM deals").fetchone()[0] == 1
+    assert b"very-secret" not in path.read_bytes()
+
+
+def test_backup_runs_once_a_day_and_keeps_thirty(conn, tmp_path):
+    settings = {"backup_dir": str(tmp_path / "b")}
+    day = 86400
+    for i in range(35):
+        backup.create(conn, settings, NOW + i * day)
+    assert len(backup.copies(tmp_path / "b")) == 30
+    assert backup.run_if_due(conn, settings) is False
+    assert backup.status(settings)["count"] == 30
+
+
+def test_background_start_does_not_open_a_browser(steps, monkeypatch):
+    monkeypatch.setattr(launcher, "server_state", lambda: {"commit": "new"})
+    launcher.main(open_browser=False)
+    assert launcher.URL not in steps
+
+
+def test_ai_test_needs_a_configured_service(client):
+    assert client.post("/api/ai/test", json={}).status_code == 409

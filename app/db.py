@@ -71,6 +71,7 @@ DEFAULT_SETTINGS = {
     "markets": ["US30", "XAUUSD"],
     "feeds": [],      # extra RSS addresses added by the user
     "proxy": "",      # e.g. http://127.0.0.1:10809
+    "backup_dir": "", # empty uses the default folder
     "ai": {
         "format": "openai",   # openai | anthropic
         "base_url": "",

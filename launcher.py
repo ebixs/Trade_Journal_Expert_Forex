@@ -122,7 +122,7 @@ def show_error(text: str) -> None:
         subprocess.run(["osascript", "-e", f'display alert "Trade Journal" message "{text}"'])
 
 
-def main() -> int:
+def main(open_browser=True) -> int:
     LOG.parent.mkdir(exist_ok=True)
     update()
     ensure_environment()
@@ -140,9 +140,10 @@ def main() -> int:
         if not wait_until_ready():
             show_error("The journal did not start. See data/server.log in the project folder.")
             return 1
-    webbrowser.open(URL)
+    if open_browser:
+        webbrowser.open(URL)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(open_browser="--background" not in sys.argv))
