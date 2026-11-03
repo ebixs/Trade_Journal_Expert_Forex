@@ -41,4 +41,5 @@ chmod +x "$APP/Contents/MacOS/journal"
 xattr -cr "$APP" 2>/dev/null || true
 codesign --force --deep -s - "$APP" 2>/dev/null || true
 touch "$APP"
+killall Finder 2>/dev/null || true
 echo "Done. Trade Journal is on your Desktop."
