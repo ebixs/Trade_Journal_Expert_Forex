@@ -1,7 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const state = { market: "", view: "overview", account: "", symbol: "", range: 30, flag: "", settings: null, status: null };
-const THEMES = [["firoozeh", "فیروزه"], ["shab", "شب"], ["zar", "زر"], ["kavir", "کویر"], ["abr", "ابر"]];
+const THEMES = [["firoozeh", "فیروزه"], ["shab", "شب"], ["zar", "زر"], ["kavir", "کویر"], ["abr", "ابر"], ["exs", "EXS"]];
 const SIDE = { buy: "خرید", sell: "فروش" };
 const ZONES = ["Asia/Tehran", "UTC", "Europe/London", "America/New_York", "Asia/Dubai"];
 
@@ -278,7 +278,7 @@ function viewTheme() {
   $("#view").innerHTML = `<h1 class="page-title">ظاهر</h1><p class="page-sub">هر تغییر همان لحظه اعمال و ذخیره می‌شود.</p>
     <div class="swatches">${THEMES.map(swatch).join("")}</div>
     <div class="form">
-      <label>رنگ تأکید<input type="color" id="accent" value="${t.accent || "#40d2c2"}" style="width:100%;height:36px;padding:2px"><small><button type="button" class="btn quiet" id="reset-accent" style="margin-top:4px;padding:2px 10px">برگشت به رنگ تم</button></small></label>
+      <label>رنگ تأکید<input type="color" id="accent" value="${t.accent || getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()}" style="width:100%;height:36px;padding:2px"><small><button type="button" class="btn quiet" id="reset-accent" style="margin-top:4px;padding:2px 10px">برگشت به رنگ تم</button></small></label>
       <label>اندازه متن<input type="range" id="scale" min="85" max="125" step="5" value="${t.font_scale}" style="width:100%"><small><span class="num"><span id="scale-v">${t.font_scale}</span>%</span></small></label>
       <label>تراکم<select id="density"><option value="compact">فشرده</option><option value="normal">معمولی</option><option value="comfortable">جادار</option></select></label>
       <label>منطقه زمانی<select id="zone">${ZONES.map((z) => `<option ${z === state.settings.timezone ? "selected" : ""}>${z}</option>`).join("")}</select></label>

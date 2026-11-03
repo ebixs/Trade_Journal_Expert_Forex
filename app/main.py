@@ -2,7 +2,9 @@
 import csv
 import io
 import os
+import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -20,6 +22,14 @@ from .ingest import SyncIn, apply_sync
 
 STATIC = Path(__file__).parent / "static"
 EA_ONLINE_SECONDS = 30
+
+
+def running_commit() -> str:
+    try:
+        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=STATIC.parent.parent, capture_output=True,
+                              text=True, timeout=5, creationflags=0x08000000 if os.name == "nt" else 0).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
 
 
 class NoteIn(BaseModel):
@@ -82,6 +92,7 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
 
     app = FastAPI(title="Trade Journal", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.worker = None
+    commit = running_commit()
     # Blocks DNS rebinding: a web page must not be able to read this local server.
     app.add_middleware(TrustedHostMiddleware,
                        allowed_hosts=["127.0.0.1", "localhost", "testserver"])
@@ -135,6 +146,15 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
         for alert_id, level, text in alerts + analytics.build_alerts(trades, positions, settings["rules"], tz, now):
             lines.append(f"ALERT|{alert_id}|{level}|{text}")
         return "\n".join(lines) + "\n"
+
+    @app.get("/api/version")
+    def version():
+        return {"commit": commit}
+
+    @app.post("/api/shutdown", dependencies=[Depends(require_token), Depends(require_json)])
+    def shutdown():
+        threading.Timer(0.2, os._exit, [0]).start()
+        return {"stopping": True}
 
     @app.get("/api/status")
     def status():

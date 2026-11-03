@@ -385,3 +385,51 @@ def test_simultaneous_requests_never_fail(client):
     [j.start() for j in jobs]
     [j.join() for j in jobs]
     assert failures == []
+
+
+# --- desktop shortcut ------------------------------------------------------
+import launcher  # noqa: E402
+
+
+@pytest.fixture
+def steps(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(launcher, "LOG", tmp_path / "data" / "launcher.log")
+    monkeypatch.setattr(launcher, "update", lambda: calls.append("update"))
+    monkeypatch.setattr(launcher, "ensure_environment", lambda: calls.append("env"))
+    monkeypatch.setattr(launcher, "stop_server", lambda: calls.append("stop"))
+    monkeypatch.setattr(launcher, "start_server", lambda: calls.append("start"))
+    monkeypatch.setattr(launcher, "wait_until_ready", lambda: True)
+    monkeypatch.setattr(launcher, "current_commit", lambda: "new")
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda url: calls.append(url))
+    return calls
+
+
+def test_starts_server_when_none_is_running(steps, monkeypatch):
+    monkeypatch.setattr(launcher, "server_state", lambda: None)
+    assert launcher.main() == 0
+    assert steps == ["update", "env", "start", launcher.URL]
+
+
+def test_up_to_date_server_is_left_running(steps, monkeypatch):
+    monkeypatch.setattr(launcher, "server_state", lambda: {"commit": "new"})
+    launcher.main()
+    assert steps == ["update", "env", launcher.URL]
+
+
+def test_old_server_restarts_after_an_update(steps, monkeypatch):
+    monkeypatch.setattr(launcher, "server_state", lambda: {"commit": "old"})
+    launcher.main()
+    assert steps == ["update", "env", "stop", "start", launcher.URL]
+
+
+def test_failed_update_still_opens_the_journal(monkeypatch, tmp_path):
+    monkeypatch.setattr(launcher, "LOG", tmp_path / "data" / "launcher.log")
+    monkeypatch.setattr(launcher, "git", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("offline")))
+    launcher.update()
+    assert "offline" in launcher.LOG.read_text() or "skipped" in launcher.LOG.read_text()
+
+
+def test_shutdown_needs_the_token(client):
+    assert client.post("/api/shutdown", json={}).status_code == 401
+    assert "commit" in client.get("/api/version").json()
