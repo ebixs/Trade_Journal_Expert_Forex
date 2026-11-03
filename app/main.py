@@ -83,6 +83,15 @@ def create_app(db_path=None, demo=False, background=False) -> FastAPI:
 
     app = FastAPI(title="Trade Journal", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.worker = None
+
+    @app.middleware("http")
+    async def always_revalidate(request: Request, call_next):
+        # Updates arrive through git, so the browser must never reuse an old page script.
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     commit = gitinfo.head_commit(STATIC.parent.parent)
     # Blocks DNS rebinding: a web page must not be able to read this local server.
     app.add_middleware(TrustedHostMiddleware,

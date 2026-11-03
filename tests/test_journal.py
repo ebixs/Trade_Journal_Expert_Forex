@@ -462,3 +462,7 @@ def test_head_commit_reads_loose_packed_and_detached(tmp_path):
     (git_dir / "HEAD").write_text("fff999\n")
     assert gitinfo.head_commit(tmp_path) == "fff999"
     assert gitinfo.head_commit(tmp_path / "missing") == ""
+
+
+def test_static_files_are_revalidated_after_updates(client):
+    assert client.get("/static/app.js").headers["cache-control"] == "no-cache"
