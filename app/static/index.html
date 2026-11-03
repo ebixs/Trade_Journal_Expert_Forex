@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="firoozeh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دفتر معامله</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%233fd0c0' d='M12 1l3 4h5v5l3 2-3 3v5h-5l-3 3-3-3H4v-5l-3-3 3-2V5h5z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1l3 4h5v5l3 2-3 3v5h-5l-3 3-3-3H4v-5l-3-3 3-2V5h5z"/></svg>
+      <span>دفتر معامله</span>
+    </div>
+    <nav id="nav" aria-label="بخش‌ها">
+      <button data-view="overview">نمای کلی</button>
+      <button data-view="trades">معامله‌ها</button>
+      <button data-view="patterns">الگوهای من</button>
+      <button data-view="news">خبر و فاندامنتال</button>
+      <button data-view="coach">مربی</button>
+      <button data-view="rules">قوانین و هشدار</button>
+      <button data-view="sources">هوش مصنوعی و منبع‌ها</button>
+      <button data-view="theme">ظاهر</button>
+      <button data-view="connect">اتصال متاتریدر</button>
+    </nav>
+    <div id="link" class="link"></div>
+  </aside>
+  <main>
+    <div id="demo" class="demo" hidden>داده‌های این صفحه نمونه‌اند. برای داده واقعی برنامه را با start.bat اجرا کن.</div>
+    <div id="filters" class="filters"></div>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="scrim" class="scrim" hidden></div>
+<aside id="drawer" class="drawer" hidden aria-label="جزئیات معامله"></aside>
+<div id="toast" class="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

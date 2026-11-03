@@ -1,0 +1,7 @@
+data/
+.venv/
+__pycache__/
+.pytest_cache/
+*.ex4
+*.ex5
+.DS_Store
