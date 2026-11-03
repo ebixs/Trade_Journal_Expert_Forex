@@ -555,3 +555,15 @@ def test_brief_prompt_has_market_data(client):
 def test_rights_are_reserved():
     from pathlib import Path
     assert "All rights reserved" in (Path(__file__).parent.parent / "LICENSE").read_text()
+
+
+def test_finds_claude_code_inside_the_desktop_app(tmp_path):
+    for version in ("2.1.9", "2.1.309"):
+        folder = tmp_path / version / "claude.app" / "Contents" / "MacOS"
+        folder.mkdir(parents=True)
+        (folder / "claude").write_text("#!/bin/sh\n")
+        (folder / "claude").chmod(0o755)
+    (tmp_path / "2.1.309" / "claude.json").write_text("{}")
+    found = ai.desktop_claude([tmp_path])
+    assert "2.1.309" in found and found.endswith("claude")
+    assert ai.desktop_claude([tmp_path / "missing"]) is None

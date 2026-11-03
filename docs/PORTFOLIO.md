@@ -15,7 +15,7 @@ A local-first analytics product that captures MetaTrader trades automatically an
 - Combined economic calendars and RSS news into per-market fundamentals with surprise analysis and source health tracking.
 - Integrated a configurable LLM coach that uses structured statistics and removes account identity before sending data.
 - Delivered Persian right-to-left dashboards with eight themes, self-updating desktop launchers and automated backups.
-- Wrote 65 automated tests and reproduced a concurrency failure under load before fixing it with per-thread database connections.
+- Wrote 66 automated tests and reproduced a concurrency failure under load before fixing it with per-thread database connections.
 
 ## The problem
 

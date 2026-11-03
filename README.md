@@ -12,7 +12,7 @@
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-local%20server-009688?logo=fastapi&logoColor=white">
   <img alt="SQLite" src="https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white">
   <img alt="MQL" src="https://img.shields.io/badge/MQL5%20%2F%20MQL4-read--only%20expert-E6B553">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-65%20passing-46D68A">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-66%20passing-46D68A">
   <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%7C%20Windows-supported-555">
 </p>
 
@@ -145,7 +145,7 @@ pytest
 | Area | Status |
 |---|---|
 | macOS with MT5 on a demo account | Working: compiled, connected, live news and calendar |
-| Server, analytics, backups, launcher logic | Covered by 65 automated tests |
+| Server, analytics, backups, launcher logic | Covered by 66 automated tests |
 | Windows launcher and MT4 build | Written, not yet run on real systems |
 | Real AI service | Claude Code path tested with a stand-in program; API path with a local stand-in |
 | Netting accounts | Basic support; position reversals may not split exactly |

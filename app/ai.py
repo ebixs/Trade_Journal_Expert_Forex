@@ -4,12 +4,14 @@ The account number, name and broker are never sent. Headlines and notes are pass
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from . import db
 from .analytics import FLAG_LABELS
@@ -59,11 +61,28 @@ def configured(conn) -> bool:
     return bool(ai["api_key"] and ai["base_url"] and ai["model"])
 
 
+def desktop_claude(roots=None):
+    """The Claude desktop app keeps its own copy of Claude Code; prefer the newest version."""
+    home = Path.home()
+    roots = roots or [home / "Library" / "Application Support" / "Claude" / "claude-code",
+                      Path(os.environ.get("APPDATA", home)) / "Claude" / "claude-code"]
+    for root in roots:
+        if not root.is_dir():
+            continue
+        versions = [p for p in root.iterdir() if p.is_dir()]
+        versions.sort(key=lambda p: [int(n) for n in re.findall(r"\d+", p.name)], reverse=True)
+        for version in versions:
+            for found in sorted(version.rglob("claude*")):
+                if found.is_file() and found.name in ("claude", "claude.exe") and os.access(found, os.X_OK):
+                    return str(found)
+    return None
+
+
 def find_claude():
     home = os.path.expanduser("~")
     places = [os.path.join(home, ".local", "bin"), os.path.join(home, ".claude", "local"),
               "/opt/homebrew/bin", "/usr/local/bin"]
-    return shutil.which("claude") or shutil.which("claude", path=os.pathsep.join(places))
+    return shutil.which("claude") or shutil.which("claude", path=os.pathsep.join(places)) or desktop_claude()
 
 
 def call_claude_code(ai: dict, system: str, user: str, runner=subprocess.run) -> str:
