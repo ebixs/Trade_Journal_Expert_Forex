@@ -178,7 +178,7 @@ def test_full_flow_through_the_api(client):
     client.post("/api/ea/sync", json=body(deals=deals), headers={"X-Journal-Token": token})
     assert client.get("/api/overview").json()["summary"]["net"] == 1000
     detail = client.get("/api/trades/S:1/7").json()
-    assert "خرید XAUUSD" in detail["story"] and len(detail["timeline"]) == 2
+    assert "XAUUSD" in detail["story"] and len(detail["timeline"]) == 2
     assert client.put("/api/notes/S:1/7", json={"note": "خوب", "rating": 5}).status_code == 200
     assert client.get("/api/trades/S:1/7").json()["note"]["rating"] == 5
     assert "XAUUSD" in client.get("/api/export.csv").text

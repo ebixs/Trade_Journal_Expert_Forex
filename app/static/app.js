@@ -1,7 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const state = { market: "", view: "overview", account: "", symbol: "", range: 30, flag: "", settings: null, status: null };
-const THEMES = [["firoozeh", "فیروزه"], ["shab", "شب"], ["zar", "زر"], ["kavir", "کویر"], ["abr", "ابر"], ["exs", "EXS"]];
+const THEMES = [["firoozeh", "فیروزه"], ["shab", "شب"], ["zar", "زر"], ["kavir", "کویر"], ["abr", "ابر"], ["exs", "EXS"], ["matrix", "Matrix"], ["ai", "AI"]];
 const SIDE = { buy: "خرید", sell: "فروش" };
 const ZONES = ["Asia/Tehran", "UTC", "Europe/London", "America/New_York", "Asia/Dubai"];
 
@@ -65,12 +65,57 @@ function renderFilters(symbols) {
   const ranges = [[7, "۷ روز"], [30, "۳۰ روز"], [90, "۹۰ روز"], [0, "همه"]];
   $("#filters").innerHTML = `
     ${accounts.length > 1 ? `<select id="f-account" aria-label="حساب"><option value="">همه حساب‌ها</option>${options}</select>` : ""}
-    <select id="f-symbol" aria-label="نماد"><option value="">همه نمادها</option>${(symbols || []).map((s) => `<option ${s === state.symbol ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <select id="f-symbol" aria-label="نماد"><option value="">همه نمادها</option>${(symbols || []).map((s) => `<option dir="ltr" ${s === state.symbol ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
     <div class="chips" role="group" aria-label="بازه زمانی">${ranges.map(([d, t]) => `<button data-range="${d}" aria-pressed="${state.range === d}">${t}</button>`).join("")}</div>
     <a class="btn quiet" href="/api/export.csv?${query()}" style="text-decoration:none">خروجی CSV</a>`;
   $("#f-account")?.addEventListener("change", (e) => { state.account = e.target.value; state.symbol = ""; render(); });
   $("#f-symbol").addEventListener("change", (e) => { state.symbol = e.target.value; render(); });
   document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => { state.range = +b.dataset.range; render(); }));
+}
+
+function heroEffect() {
+  const host = document.querySelector(".hero-head");
+  const theme = document.documentElement.dataset.theme;
+  if (!host || !["matrix", "ai"].includes(theme)) return;
+  const canvas = document.createElement("canvas");
+  host.prepend(canvas);
+  const box = canvas.getBoundingClientRect(), ctx = canvas.getContext("2d");
+  const scale = Math.min(devicePixelRatio || 1, 2), W = box.width, H = box.height;
+  canvas.width = W * scale; canvas.height = H * scale; ctx.scale(scale, scale);
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const live = () => canvas.isConnected && document.documentElement.dataset.theme === theme;
+  if (theme === "matrix") {
+    const size = 15, drops = Array.from({ length: Math.ceil(W / size) }, () => Math.random() * H / size);
+    const glyphs = "01$€£¥XAUUSDアカサタナ";
+    ctx.font = `${size}px Menlo,Consolas,monospace`;
+    const frame = () => {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#39ff88";
+      drops.forEach((y, i) => {
+        ctx.fillText(glyphs[Math.floor(Math.random() * glyphs.length)], i * size, y * size);
+        drops[i] = y * size > H && Math.random() > .97 ? 0 : y + 1;
+      });
+    };
+    if (calm) { for (let i = 0; i < 40; i++) frame(); return; }
+    const timer = setInterval(() => (live() ? frame() : clearInterval(timer)), 70);
+    return;
+  }
+  const dots = Array.from({ length: Math.round(W / 24) }, () => ({ x: Math.random() * W, y: Math.random() * H, a: (Math.random() - .5) * .35, b: (Math.random() - .5) * .35 }));
+  const frame = () => {
+    ctx.clearRect(0, 0, W, H);
+    dots.forEach((d, i) => {
+      d.x = (d.x + d.a + W) % W; d.y = (d.y + d.b + H) % H;
+      for (let k = i + 1; k < dots.length; k++) {
+        const o = dots[k], dist = Math.hypot(d.x - o.x, d.y - o.y);
+        if (dist < 120) { ctx.strokeStyle = `rgba(167,139,250,${.4 * (1 - dist / 120)})`; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(o.x, o.y); ctx.stroke(); }
+      }
+      ctx.fillStyle = "#c4b5fd"; ctx.beginPath(); ctx.arc(d.x, d.y, 1.6, 0, 7); ctx.fill();
+    });
+    if (!calm && live()) requestAnimationFrame(frame);
+  };
+  frame();
 }
 
 function emptyConnect() {
@@ -155,7 +200,7 @@ const insightList = (items) => items.map((i) => `<div class="note ${esc(i.level)
 
 function tradeRows(rows, labels) {
   return rows.map((t) => `<tr class="row" tabindex="0" data-a="${esc(t.account_id)}" data-p="${esc(t.position_id)}">
-    <td>${stamp(t.open_time)}</td><td>${esc(t.symbol)}</td><td>${SIDE[t.side]}</td><td>${plain(t.volume)}</td>
+    <td>${stamp(t.open_time)}</td><td><bdi>${esc(t.symbol)}</bdi></td><td>${SIDE[t.side]}</td><td>${plain(t.volume)}</td>
     <td>${price(t.entry_price)}</td><td>${price(t.exit_price)}</td><td>${t.closed ? money(t.net) : '<span class="muted">باز</span>'}</td>
     <td>${t.r_multiple == null ? "–" : `<span class="num">${t.r_multiple > 0 ? "+" : ""}${t.r_multiple}R</span>`}</td>
     <td>${t.flags.map((f) => `<span class="tag">${esc(labels[f])}</span>`).join("")}</td></tr>`).join("");
@@ -176,7 +221,7 @@ async function viewOverview() {
   const s = o.summary;
   if (!s.count && !o.positions.length) { $("#view").innerHTML = state.status.accounts.length ? `<div class="empty"><h2>در این بازه معامله‌ای نیست</h2><p>بازه زمانی را بزرگ‌تر کن.</p></div>` : emptyConnect(); return; }
   const cur = o.currency ? ` ${esc(o.currency)}` : "";
-  const open = o.positions.length ? `<section class="block" style="margin-bottom:24px"><h2>پوزیشن‌های باز</h2><div class="scroll"><table><thead><tr><th>نماد</th><th>جهت</th><th>لات</th><th>ورود</th><th>حد ضرر</th><th>حد سود</th><th>سود شناور</th></tr></thead><tbody>${o.positions.map((p) => `<tr><td>${esc(p.symbol)}</td><td>${SIDE[p.side]}</td><td>${plain(p.volume)}</td><td>${price(p.open_price)}</td><td>${p.sl ? price(p.sl) : '<span class="down">ندارد</span>'}</td><td>${p.tp ? price(p.tp) : "–"}</td><td>${money(p.profit)}</td></tr>`).join("")}</tbody></table></div></section>` : "";
+  const open = o.positions.length ? `<section class="block" style="margin-bottom:24px"><h2>پوزیشن‌های باز</h2><div class="scroll"><table><thead><tr><th>نماد</th><th>جهت</th><th>لات</th><th>ورود</th><th>حد ضرر</th><th>حد سود</th><th>سود شناور</th></tr></thead><tbody>${o.positions.map((p) => `<tr><td><bdi>${esc(p.symbol)}</bdi></td><td>${SIDE[p.side]}</td><td>${plain(p.volume)}</td><td>${price(p.open_price)}</td><td>${p.sl ? price(p.sl) : '<span class="down">ندارد</span>'}</td><td>${p.tp ? price(p.tp) : "–"}</td><td>${money(p.profit)}</td></tr>`).join("")}</tbody></table></div></section>` : "";
   const profile = o.profile ? `<div class="profile"><span class="muted">سبک فعلی تو</span><br><b>${esc(o.profile.style)}</b><p class="muted">${esc(o.profile.text)}. میانگین نگهداری ${esc(o.profile.avg_duration)}.</p></div>` : "";
   $("#view").innerHTML = `
     <section class="hero">
@@ -198,6 +243,7 @@ async function viewOverview() {
       <section class="block"><h2>تقویم نتیجه</h2>${calendar(o.daily)}</section>
     </div>`;
   bindChart();
+  heroEffect();
 }
 
 async function viewTrades() {
@@ -216,7 +262,7 @@ function breakdown(title, rows) {
   if (!rows.length) return "";
   const max = Math.max(1, ...rows.map((r) => Math.abs(r.net)));
   return `<section class="block"><h2>${title}</h2><div class="scroll"><table><thead><tr><th></th><th>تعداد</th><th>برد</th><th>میانگین</th><th>جمع</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr>
-    <td>${esc(r.name)}</td><td>${plain(r.count)}</td><td>${unit(r.win_rate, "%", 0)}</td><td>${money(r.expectancy)}</td><td>${money(r.net)}</td>
+    <td><bdi>${esc(r.name)}</bdi></td><td>${plain(r.count)}</td><td>${unit(r.win_rate, "%", 0)}</td><td>${money(r.expectancy)}</td><td>${money(r.net)}</td>
     <td style="width:26%"><span class="bar" style="width:${(Math.abs(r.net) / max) * 100}%;background:var(${r.net >= 0 ? "--up" : "--down"})"></span></td></tr>`).join("")}</tbody></table></div></section>`;
 }
 
@@ -329,7 +375,7 @@ async function openTrade(account, position) {
   const d = await api(`/api/trades/${encodeURIComponent(account)}/${encodeURIComponent(position)}`);
   const t = d.trade, n = d.note;
   const drawer = $("#drawer");
-  drawer.innerHTML = `<header><div><h2>${SIDE[t.side]} ${esc(t.symbol)}</h2><div>${t.closed ? money(t.net) : '<span class="muted">باز</span>'} <span class="muted">${esc(d.currency)}</span></div></div><button class="x" aria-label="بستن">×</button></header>
+  drawer.innerHTML = `<header><div><h2>${SIDE[t.side]} <bdi>${esc(t.symbol)}</bdi></h2><div>${t.closed ? money(t.net) : '<span class="muted">باز</span>'} <span class="muted">${esc(d.currency)}</span></div></div><button class="x" aria-label="بستن">×</button></header>
     <p class="story">${esc(d.story)}</p>${ladder(t)}
     <div class="grid2">
       <div class="fact"><b>${plain(t.volume)}</b><span>لات</span></div>

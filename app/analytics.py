@@ -213,7 +213,7 @@ def timeline(deals: list, events: list, trade: dict, tz: ZoneInfo) -> list:
 
 def narrate(trade: dict, tz: ZoneInfo, currency: str = "") -> str:
     side = "خرید" if trade["side"] == "buy" else "فروش"
-    parts = [f"{fmt_local(trade['open_time'], tz)} وارد {side} {trade['symbol']} با حجم "
+    parts = [f"{fmt_local(trade['open_time'], tz)} وارد {side} {_bidi(trade['symbol'])} با حجم "
              f"{trade['volume']:g} لات روی قیمت {fmt_price(trade['entry_price'])} شدی."]
     if trade["sl_initial"]:
         plan = f"حد ضررت را روی {fmt_price(trade['sl_initial'])} گذاشتی"
@@ -296,11 +296,16 @@ def _insight(level, title, evidence, advice):
     return {"level": level, "title": title, "evidence": evidence, "advice": advice}
 
 
+def _bidi(name: str) -> str:
+    return ltr(name) if name.isascii() else name
+
+
 def _best_worst(rows: list, what: str, currency: str) -> list:
     ranked = sorted((r for r in rows if r["count"] >= MIN_SAMPLE), key=lambda r: r["expectancy"])
     if len(ranked) < 2:
         return []
     worst, best = ranked[0], ranked[-1]
+    worst, best = dict(worst, name=_bidi(worst["name"])), dict(best, name=_bidi(best["name"]))
     if worst["expectancy"] >= 0 or best["expectancy"] <= 0:
         return []
     return [_insight(
